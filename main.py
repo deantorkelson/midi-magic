@@ -1,6 +1,7 @@
 import os
+import logging, sys
 from midiutil import MIDIFile
-from helpers.helpers import find_instrument_program, velocity_from_name
+from helpers.helpers import find_instrument_program, velocity_from_name, is_note, is_rest, get_pitch, get_duration
 
 # consts
 CRESCENDO = 'c'
@@ -8,13 +9,14 @@ DECRESCENDO = 'd'
 
 
 class MidiMagicFile:
-
-    def __init__(self, song_dir, file_name, midi):
+    def __init__(self, song_dir, file_name, midi, key):
         self.song_dir: str = song_dir
         self.file_name: str = file_name
         self.midi: MIDIFile = midi
+        self.key = key
         self.line_index: int = 0
         self.velocity = 50
+        self.time = 0
 
     # processes the MidiMagic text file into midi on the given track
     def process_to_track(self, track):
@@ -31,15 +33,31 @@ class MidiMagicFile:
             if len(measure) == 0:
                 done_reading_file = True
                 continue
-            self.measure_to_midi(measure)
+            self.measure_to_midi(measure, track)
 
-    def measure_to_midi(self, measure: list[str]):
+    def update_velocity(self, velocity_modifier):
+        if velocity_modifier == CRESCENDO:
+            self.velocity += 1
+        elif velocity_modifier == DECRESCENDO:
+            self.velocity -= 1
+
+    def measure_to_midi(self, measure: list[str], track: int):
         print(measure)
-        measure_key: str = measure[0].split()[1]
+        try :
+            key = measure[0].split()[1]
+        except IndexError:
+            key = self.key
         measure.pop(0)
         dynamics: str = measure[-1]
-        velocity_modifier: str = ''
-
+        clef: str = ''
+        velocity_modifier = CRESCENDO
+        for line in measure:
+            char = line[0]
+            if char != '|':
+                if char == 'F' or char == '&':
+                    clef = char
+                else:
+                    logging.warning('got first value of', char)
         if dynamics[0] != '|':
             # we have dynamics
             measure.pop()
@@ -53,14 +71,38 @@ class MidiMagicFile:
                 velocity_modifier = CRESCENDO
             elif sign == '>':
                 velocity_modifier = DECRESCENDO
-        print(measure)
-        # index as we read measure from left to right
-        index: int = 0
+        print(*measure)
+        # index as we read measure from left to right. start at 1 to account for vertical bars
+        lr_index: int = 1
 
         # read the measure from left to right
-        # if a note is encountered
-        #   add it to the midi file
-        #   at the end of reading that column, increase `time` based on the largest (smalled?) note encountered
+        done = False
+        while not done:
+            done = True
+            # this value is in quarter notes, can be fractional (hopefully)
+            time_step = 117
+            for vert_index, line in enumerate(measure):
+                if lr_index >= len(line):
+                    continue
+                done = False  # if any line still has something left, keep going
+                char = line[lr_index]
+                duration = get_duration(char)
+                if is_note(char):
+                    # look up its pitch using key, clef, and line index
+                    # todo need to change once ledger lines are supported
+                    pitch = get_pitch(clef, key, vert_index)
+                    #   look up its duration based on the note
+                    self.midi.addNote(self, track, pitch, self.time, duration, self.velocity)
+                    if duration < time_step:
+                        time_step = duration
+                elif is_rest(char):
+                    # update time step to value of rest
+                    time_step = duration
+                else:
+                    logging.warning(f"Invalid character detected in measure, line {vert_index} pos {lr_index}: {char}")
+            self.update_velocity(velocity_modifier)
+            self.time += time_step
+        # at the end of reading the column, increase `time` based on the smallest note encountered
         return
 
     def read_in_next_measure(self, lines) -> list[str]:
@@ -74,8 +116,8 @@ class MidiMagicFile:
             if line != '\n':
                 measure.append(line)
             if self.line_index + 1 < num_lines:
-                nextLine: str = lines[self.line_index + 1].strip()
-                if len(nextLine) > 0 and nextLine[0].isdigit():
+                next_line: str = lines[self.line_index + 1].strip()
+                if len(next_line) > 0 and next_line[0].isdigit():
                     # new measure found, stop reading and parse the previous measure
                     new_measure_found = True
             self.line_index += 1
@@ -84,16 +126,19 @@ class MidiMagicFile:
 class MidiMagic:
     def __init__(self, song_dir):
         self.song_dir = song_dir
+        logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
-    def create_midi(self):
+def create_midi(self):
         song_files = os.listdir(f"songs/{self.song_dir}")
         midi = MIDIFile(1)
         track = 0
+        key = 'C'
         for file_name in song_files:
-            time = 0
             if file_name == 'meta.txt':
+                # get metadata, like key
+                # TODO need to get metadata first
                 continue
-            MidiMagicFile(self.song_dir, file_name, midi).process_to_track(track)
+            MidiMagicFile(self.song_dir, file_name, midi, key).process_to_track(track)
             track += 1
         with open("generated_midi/test.mid", "wb") as output_file:
             midi.writeFile(output_file)
