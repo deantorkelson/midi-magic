@@ -1,5 +1,6 @@
 import os
-import logging, sys
+import logging
+import sys
 from midiutil import MIDIFile
 from helpers.helpers import find_instrument_program, velocity_from_name, is_note, is_rest, get_pitch, get_duration
 
@@ -19,7 +20,7 @@ class MidiMagicFile:
         self.time = 0
 
     # processes the MidiMagic text file into midi on the given track
-    def process_to_track(self, track):
+    def process_to_track(self, track: int):
         instrument: str = self.file_name.split('.')[0]
         # lookup instrument program number
         self.midi.addTrackName(track, 0, instrument)
@@ -43,7 +44,8 @@ class MidiMagicFile:
 
     def measure_to_midi(self, measure: list[str], track: int):
         print(measure)
-        try :
+        try:
+            # TODO: if key is minor get relative major
             key = measure[0].split()[1]
         except IndexError:
             key = self.key
@@ -56,8 +58,6 @@ class MidiMagicFile:
             if char != '|':
                 if char == 'F' or char == '&':
                     clef = char
-                else:
-                    logging.warning('got first value of', char)
         if dynamics[0] != '|':
             # we have dynamics
             measure.pop()
@@ -98,10 +98,11 @@ class MidiMagicFile:
                 elif is_rest(char):
                     # update time step to value of rest
                     time_step = duration
-                else:
+                elif char not in "- ":
                     logging.warning(f"Invalid character detected in measure, line {vert_index} pos {lr_index}: {char}")
             self.update_velocity(velocity_modifier)
             self.time += time_step
+            lr_index += 1
         # at the end of reading the column, increase `time` based on the smallest note encountered
         return
 
@@ -128,10 +129,10 @@ class MidiMagic:
         self.song_dir = song_dir
         logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
-def create_midi(self):
+    def create_midi(self):
         song_files = os.listdir(f"songs/{self.song_dir}")
         midi = MIDIFile(1)
-        track = 0
+        track: int = 0
         key = 'C'
         for file_name in song_files:
             if file_name == 'meta.txt':
@@ -139,6 +140,7 @@ def create_midi(self):
                 # TODO need to get metadata first
                 continue
             MidiMagicFile(self.song_dir, file_name, midi, key).process_to_track(track)
+            print(track)
             track += 1
         with open("generated_midi/test.mid", "wb") as output_file:
             midi.writeFile(output_file)
