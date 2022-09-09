@@ -70,16 +70,28 @@ def get_duration(char: str) -> float:
         return 0.25
 
 
-def get_pitch(clef: str, key: str, distance_from_top: int) -> int:
+def pitch_iterator(index: int) -> int:
+    # pitches contains the number of semitones req'd to go from one note to the next
+    #        G->A->B->C->D->E->F->G
+    pitches = [2, 2, 1, 2, 2, 1, 2]
+    yield pitches[index % 7]
+    index += 1
+
+
+# C-2 is pitch 0, +1 for each half step up
+def get_pitch(clef: str, key: str, steps_from_top: int) -> int:
     assert clef in 'F&'
     if clef == '&':
         top_line_pitch = 89  # MIDI number for F5
     else:
         top_line_pitch = 69  # MIDI number for A3
-    unkeyed_note_pitch = top_line_pitch - distance_from_top
+    unkeyed_note_pitch = top_line_pitch
+    for _ in range(steps_from_top):
+        unkeyed_note_pitch -= pitch_iterator()
     # problem - this note pitch is wrong. consider an A4 (num 81) in the key of C, treble clef
     # distance from top is 3
     # problem is that not every step down from the top is equal to one midi pitch num down
     # idea: knowing that treble starts on F and bass starts on A, maybe make a generator that allows
     #   you to iterate through the unkeyed pitches of the clef, then modify with key as needed?
+
     return 65

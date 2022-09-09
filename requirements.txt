@@ -1,1 +1,2 @@
 MIDIUtil==1.2.1
+pytest~=7.1.3

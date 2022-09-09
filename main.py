@@ -80,7 +80,7 @@ class MidiMagicFile:
         while not done:
             done = True
             # this value is in quarter notes, can be fractional (hopefully)
-            time_step = 117
+            time_step = 999
             for vert_index, line in enumerate(measure):
                 if lr_index >= len(line):
                     continue
