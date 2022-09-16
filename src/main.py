@@ -2,7 +2,7 @@ import os
 import logging
 import sys
 from midiutil import MIDIFile
-from helpers.helpers import find_instrument_program, velocity_from_name, is_note, is_rest, get_pitch, get_duration
+from util.helpers import find_instrument_program, velocity_from_name, is_note, is_rest, get_pitch, get_duration
 
 # consts
 CRESCENDO = 'c'

@@ -1,5 +1,6 @@
 import json
 import logging
+from collections.abc import Generator
 
 # 10  30 40 50 65 80 95 110
 # ppp pp p  mp mf f  ff fff
@@ -37,7 +38,7 @@ MAJOR_KEY_PITCH_MODIFIERS = {
 
 
 def find_instrument_program(instrument_name: str) -> int:
-    programs = open('helpers/instrument_programs.json', 'r')
+    programs = open('src/util/instrument_programs.json', 'r')
     data = json.load(programs)
     return data[instrument_name]
 
@@ -70,28 +71,33 @@ def get_duration(char: str) -> float:
         return 0.25
 
 
-def pitch_iterator(index: int) -> int:
+def pitch_step_generator(index: int) -> Generator[int, None, None]:
     # pitches contains the number of semitones req'd to go from one note to the next
     #        G->A->B->C->D->E->F->G
     pitches = [2, 2, 1, 2, 2, 1, 2]
-    yield pitches[index % 7]
-    index += 1
+    while True:
+        yield pitches[index % 7]
+        index += 1
 
 
-# C-2 is pitch 0, +1 for each half step up
+def key_mod_for_pitch(key_pitch_mods, pitch) -> int:
+    index = pitch
+    # TODO how to get "note" from pitch?
+    return key_pitch_mods[index]
+
+
 def get_pitch(clef: str, key: str, steps_from_top: int) -> int:
     assert clef in 'F&'
     if clef == '&':
         top_line_pitch = 89  # MIDI number for F5
+        pitch_start_index = 5
     else:
         top_line_pitch = 69  # MIDI number for A3
+        pitch_start_index = 1
     unkeyed_note_pitch = top_line_pitch
+    pitch_gen = pitch_step_generator(pitch_start_index)
     for _ in range(steps_from_top):
-        unkeyed_note_pitch -= pitch_iterator()
-    # problem - this note pitch is wrong. consider an A4 (num 81) in the key of C, treble clef
-    # distance from top is 3
-    # problem is that not every step down from the top is equal to one midi pitch num down
-    # idea: knowing that treble starts on F and bass starts on A, maybe make a generator that allows
-    #   you to iterate through the unkeyed pitches of the clef, then modify with key as needed?
-
-    return 65
+        unkeyed_note_pitch -= next(pitch_gen)
+    key_pitch_mods = MAJOR_KEY_PITCH_MODIFIERS[key]
+    keyed_note_pitch = unkeyed_note_pitch + key_mod_for_pitch(key_pitch_mods, unkeyed_note_pitch)
+    return keyed_note_pitch
