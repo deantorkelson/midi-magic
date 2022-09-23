@@ -2,8 +2,6 @@ import json
 import logging
 from collections.abc import Generator
 
-# 10  30 40 50 65 80 95 110
-# ppp pp p  mp mf f  ff fff
 NAME_TO_VELOCITY = {
     'ppp': 10,
     'pp': 30,
@@ -15,8 +13,6 @@ NAME_TO_VELOCITY = {
     'fff': 110
 }
 
-# call a key's array and pass in index of note, modify pitch by its value
-# so if something is in C major,
 MAJOR_KEY_PITCH_MODIFIERS = {
     #     C  D  E  F  G  A  B
     'C': [0, 0, 0, 0, 0, 0, 0],
@@ -74,9 +70,9 @@ def get_duration(char: str) -> float:
 def key_mod_for_pitch(key_pitch_mods, pitch) -> int:
     octave_pitch = (pitch % 12)
     index = octave_pitch - (octave_pitch // 2)
-    # incoming pitches c = 0, d = 2, e = 4, f = 5, g = 7, a = 9, b = 11
-    # desired pitches  c = 0, d = 1, e = 2, f = 3, g = 4, a = 5, b = 6
-    logging.debug(f"{pitch} -> {octave_pitch} -> {index}")
+    # octave pitches  c = 0, d = 2, e = 4, f = 5, g = 7, a = 9, b = 11
+    # desired pitches c = 0, d = 1, e = 2, f = 3, g = 4, a = 5, b = 6
+    # logging.debug(f"{pitch} -> {octave_pitch} -> {index}")
     return key_pitch_mods[index]
 
 

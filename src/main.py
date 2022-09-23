@@ -1,6 +1,7 @@
 import os
 import logging
 import sys
+import math
 from midiutil import MIDIFile
 from util.helpers import find_instrument_program, velocity_from_name, is_note, is_rest, get_pitch, get_duration
 
@@ -59,19 +60,16 @@ class MidiMagicFile:
                 if char == 'F' or char == '&':
                     clef = char
         if dynamics[0] != '|':
-            # we have dynamics
             measure.pop()
             dynamics_split = dynamics.split()
             sign = dynamics_split[0]
             if dynamics_split[0][0].isalpha():
-                # starting velocity
                 self.velocity = velocity_from_name(dynamics_split[0])
                 sign = dynamics_split[1]
             if sign == '<':
                 velocity_modifier = CRESCENDO
             elif sign == '>':
                 velocity_modifier = DECRESCENDO
-        print(*measure)
         # index as we read measure from left to right. start at 1 to account for vertical bars
         lr_index: int = 1
 
@@ -80,7 +78,7 @@ class MidiMagicFile:
         while not done:
             done = True
             # this value is in quarter notes, can be fractional (hopefully)
-            time_step = 999
+            time_step = 0
             for vert_index, line in enumerate(measure):
                 if lr_index >= len(line):
                     continue
@@ -88,19 +86,18 @@ class MidiMagicFile:
                 char = line[lr_index]
                 duration = get_duration(char)
                 if is_note(char):
-                    # look up its pitch using key, clef, and line index
-                    # todo need to change once ledger lines are supported
                     pitch = get_pitch(clef, key, vert_index)
-                    #   look up its duration based on the note
-                    self.midi.addNote(self, track, pitch, self.time, duration, self.velocity)
-                    if duration < time_step:
+                    logging.debug(f"adding note on track {track}, pitch {pitch}, time {self.time}, dur {duration}, vel {self.velocity}")
+                    self.midi.addNote(track, track, pitch, self.time, duration, self.velocity)
+                    if duration < time_step or time_step == 0:
                         time_step = duration
                 elif is_rest(char):
                     # update time step to value of rest
+                    logging.debug(f"resting for {duration} beats")
                     time_step = duration
-                elif char not in "- ":
+                elif char not in "- \n":
                     logging.warning(f"Invalid character detected in measure, line {vert_index} pos {lr_index}: {char}")
-            self.update_velocity(velocity_modifier)
+            self.update_velocity(velocity_modifier * math.ceil(time_step))
             self.time += time_step
             lr_index += 1
         # at the end of reading the column, increase `time` based on the smallest note encountered
@@ -140,9 +137,8 @@ class MidiMagic:
                 # TODO need to get metadata first
                 continue
             MidiMagicFile(self.song_dir, file_name, midi, key).process_to_track(track)
-            print(track)
             track += 1
-        with open("generated_midi/test.mid", "wb") as output_file:
+        with open(f"generated_midi/{self.song_dir}.mid", "wb") as output_file:
             midi.writeFile(output_file)
         print('done')
 
