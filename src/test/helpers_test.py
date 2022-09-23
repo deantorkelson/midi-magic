@@ -6,8 +6,10 @@ from ..util.helpers import find_instrument_program, velocity_from_name, get_pitc
 @pytest.mark.parametrize("clef,key,steps_from_top,expected_pitch", [
     ('&', 'C', 0, 89),  # F5
     ('&', 'B', 5, 82),  # A#2
+    ('&', 'G', 3, 84),  # C5
     ('F', 'C', 0, 69),  # A3
     ('F', 'Db', 6, 58),  # Bb2
+    ('F', 'Eb', 2, 65),  # F3
 ])
 def test_get_pitch(clef, key, steps_from_top, expected_pitch):
     assert get_pitch(clef, key, steps_from_top) == expected_pitch
@@ -38,7 +40,7 @@ def test_pitch_iter():
 
 
 def test_key_mod_for_pitch():
-    b_maj_key_mods = [1, 0, 1, 1, 0, 1, 1]
+    b_maj_key_mods = [1, 1, 0, 1, 1, 1, 0]
     d_pitch = 62
     assert key_mod_for_pitch(b_maj_key_mods, d_pitch) == 1
     b_pitch = 107

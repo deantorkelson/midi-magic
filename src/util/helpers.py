@@ -18,22 +18,22 @@ NAME_TO_VELOCITY = {
 # call a key's array and pass in index of note, modify pitch by its value
 # so if something is in C major,
 MAJOR_KEY_PITCH_MODIFIERS = {
-    #     A  B  C  D  E  F  G
+    #     C  D  E  F  G  A  B
     'C': [0, 0, 0, 0, 0, 0, 0],
-    'G': [0, 0, 0, 0, 0, 1, 0],
-    'D': [0, 0, 1, 0, 0, 1, 0],
-    'A': [0, 0, 1, 0, 0, 1, 1],
-    'E': [0, 0, 1, 1, 0, 1, 1],
-    'B': [1, 0, 1, 1, 0, 1, 1],
-    'F#': [1, 0, 1, 1, 1, 1, 1],
+    'G': [0, 0, 0, 1, 0, 0, 0],
+    'D': [1, 0, 0, 1, 0, 0, 0],
+    'A': [1, 0, 0, 1, 1, 0, 0],
+    'E': [1, 1, 0, 1, 1, 0, 0],
+    'B': [1, 1, 0, 1, 1, 1, 0],
+    'F#': [1, 1, 1, 1, 1, 1, 0],
     'C#': [1, 1, 1, 1, 1, 1, 1],
     'Cb': [-1, -1, -1, -1, -1, -1, -1],
-    'Gb': [-1, -1, -1, -1, -1, 0, -1],
-    'Db': [-1, -1, 0, -1, -1, 0, -1],
-    'Ab': [-1, -1, 0, -1, -1, 0, 0],
-    'Eb': [-1, -1, 0, 0, -1, 0, 0],
-    'Bb': [0, -1, 0, 0, -1, 0, 0],
-    'F': [0, -1, 0, 0, 0, 0, 0],
+    'Gb': [-1, -1, -1, 0, -1, -1, -1],
+    'Db': [0, -1, -1, 0, -1, -1, -1],
+    'Ab': [0, -1, -1, 0, 0, -1, -1],
+    'Eb': [0, 0, -1, 0, 0, -1, -1],
+    'Bb': [0, 0, -1, 0, 0, 0, -1],
+    'F': [0, 0, 0, 0, 0, 0, -1]
 }
 
 
@@ -71,29 +71,32 @@ def get_duration(char: str) -> float:
         return 0.25
 
 
+def key_mod_for_pitch(key_pitch_mods, pitch) -> int:
+    octave_pitch = (pitch % 12)
+    index = octave_pitch - (octave_pitch // 2)
+    # incoming pitches c = 0, d = 2, e = 4, f = 5, g = 7, a = 9, b = 11
+    # desired pitches  c = 0, d = 1, e = 2, f = 3, g = 4, a = 5, b = 6
+    logging.debug(f"{pitch} -> {octave_pitch} -> {index}")
+    return key_pitch_mods[index]
+
+
 def pitch_step_generator(index: int) -> Generator[int, None, None]:
     # pitches contains the number of semitones req'd to go from one note to the next
-    #        G->A->B->C->D->E->F->G
-    pitches = [2, 2, 1, 2, 2, 1, 2]
+    #        C->D->E->F->G->A->B->C
+    pitches = [2, 2, 1, 2, 2, 2, 1]
     while True:
         yield pitches[index % 7]
-        index += 1
-
-
-def key_mod_for_pitch(key_pitch_mods, pitch) -> int:
-    index = pitch
-    # TODO how to get "note" from pitch?
-    return key_pitch_mods[index]
+        index -= 1
 
 
 def get_pitch(clef: str, key: str, steps_from_top: int) -> int:
     assert clef in 'F&'
     if clef == '&':
         top_line_pitch = 89  # MIDI number for F5
-        pitch_start_index = 5
+        pitch_start_index = 2
     else:
         top_line_pitch = 69  # MIDI number for A3
-        pitch_start_index = 1
+        pitch_start_index = 4
     unkeyed_note_pitch = top_line_pitch
     pitch_gen = pitch_step_generator(pitch_start_index)
     for _ in range(steps_from_top):
