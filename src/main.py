@@ -2,6 +2,7 @@ import os
 import logging
 import sys
 import math
+import re
 from midiutil import MIDIFile
 from util.helpers import find_instrument_program, velocity_from_name, is_note, is_rest, get_pitch, get_duration
 
@@ -17,7 +18,7 @@ class MidiMagicFile:
         self.midi: MIDIFile = midi
         self.key = key
         self.line_index: int = 0
-        self.velocity = 50
+        self.velocity = velocity_from_name('mf')
         self.time = 0
 
     # processes the MidiMagic text file into midi on the given track
@@ -37,11 +38,45 @@ class MidiMagicFile:
                 continue
             self.measure_to_midi(measure, track)
 
-    def update_velocity(self, velocity_modifier):
+    def update_velocity(self, velocity_modifier, time_step):
         if velocity_modifier == CRESCENDO:
-            self.velocity += 1
+            self.velocity += (2 * math.ceil(time_step))
         elif velocity_modifier == DECRESCENDO:
-            self.velocity -= 1
+            self.velocity -= (2 * math.ceil(time_step))
+
+    def get_clef(self, measure):
+        for line in measure:
+            char = line[0]
+            if char != '|' and (char == 'F' or char == '&'):
+                return char
+
+    def get_velocity_modifier(self, measure):
+        dynamics: str = measure[-1].strip(" \n")
+        if dynamics[0] != '|':
+            sign = re.match('<>', dynamics)
+            # TODO - this does not properly get just the dynamic, includes the cres/descres too
+            velocity_name = re.match('[pmf]+', dynamics, flags=re.IGNORECASE)
+            if velocity_name:
+                self.velocity = velocity_from_name(velocity_name.string)
+            if sign == '<':
+                return CRESCENDO
+            elif sign == '>':
+                return DECRESCENDO
+
+    def process_char(self, char, clef, key, vert_index, track, time_step):
+        duration = get_duration(char)
+        if is_note(char):
+            pitch = get_pitch(clef, key, vert_index)
+            logging.debug(f"adding note on track {track}, pitch {pitch}, time {self.time}, dur {duration}, \
+                        vel {self.velocity}")
+            self.midi.addNote(track, track, pitch, self.time, duration, self.velocity)
+            if duration < time_step or time_step == 0:
+                return duration
+        elif is_rest(char):
+            # update time step to value of rest
+            logging.debug(f"resting for {duration} beats")
+            return duration
+        return 0
 
     def measure_to_midi(self, measure: list[str], track: int):
         print(measure)
@@ -51,53 +86,24 @@ class MidiMagicFile:
         except IndexError:
             key = self.key
         measure.pop(0)
-        dynamics: str = measure[-1]
-        clef: str = ''
-        velocity_modifier = CRESCENDO
-        for line in measure:
-            char = line[0]
-            if char != '|':
-                if char == 'F' or char == '&':
-                    clef = char
-        if dynamics[0] != '|':
-            measure.pop()
-            dynamics_split = dynamics.split()
-            sign = dynamics_split[0]
-            if dynamics_split[0][0].isalpha():
-                self.velocity = velocity_from_name(dynamics_split[0])
-                sign = dynamics_split[1]
-            if sign == '<':
-                velocity_modifier = CRESCENDO
-            elif sign == '>':
-                velocity_modifier = DECRESCENDO
+        clef: str = self.get_clef(measure)
+        velocity_modifier = self.get_velocity_modifier(measure)
+
         # index as we read measure from left to right. start at 1 to account for vertical bars
         lr_index: int = 1
-
-        # read the measure from left to right
         done = False
         while not done:
             done = True
-            # this value is in quarter notes, can be fractional (hopefully)
+            # this value is in quarter notes, can be fractional
             time_step = 0
             for vert_index, line in enumerate(measure):
                 if lr_index >= len(line):
                     continue
                 done = False  # if any line still has something left, keep going
                 char = line[lr_index]
-                duration = get_duration(char)
-                if is_note(char):
-                    pitch = get_pitch(clef, key, vert_index)
-                    logging.debug(f"adding note on track {track}, pitch {pitch}, time {self.time}, dur {duration}, vel {self.velocity}")
-                    self.midi.addNote(track, track, pitch, self.time, duration, self.velocity)
-                    if duration < time_step or time_step == 0:
-                        time_step = duration
-                elif is_rest(char):
-                    # update time step to value of rest
-                    logging.debug(f"resting for {duration} beats")
-                    time_step = duration
-                elif char not in "- \n":
-                    logging.warning(f"Invalid character detected in measure, line {vert_index} pos {lr_index}: {char}")
-            self.update_velocity(velocity_modifier * math.ceil(time_step))
+                # TODO - time step not incrementing
+                time_step = self.process_char(char, clef, key, vert_index, track, time_step)
+            self.update_velocity(velocity_modifier, time_step)
             self.time += time_step
             lr_index += 1
         # at the end of reading the column, increase `time` based on the smallest note encountered
@@ -133,8 +139,8 @@ class MidiMagic:
         key = 'C'
         for file_name in song_files:
             if file_name == 'meta.txt':
-                # get metadata, like key
                 # TODO need to get metadata first
+                # get metadata, like key
                 continue
             MidiMagicFile(self.song_dir, file_name, midi, key).process_to_track(track)
             track += 1
@@ -143,5 +149,5 @@ class MidiMagic:
         print('done')
 
 
-magic = MidiMagic('the-lick')
+magic = MidiMagic('generic-pop-chords')
 magic.create_midi()
