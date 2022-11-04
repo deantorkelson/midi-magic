@@ -69,7 +69,7 @@ class MidiMagicFile:
                 if sign.group(0) == '>':
                     return DECRESCENDO
 
-    # This method returns the duration of the character, or 0 if it doesn't have a duration (e.g. '-' or ' ')
+    # This method returns the duration of the character, or time_step if it doesn't have a duration (e.g. '-' or ' ')
     def process_char(self, char, clef, key, vert_index, track, time_step) -> float:
         duration = get_duration(char)
         if is_note(char):
