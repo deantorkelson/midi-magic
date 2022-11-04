@@ -135,9 +135,9 @@ class MidiMagicFile:
         return measure
 
 class MidiMagic:
-    def __init__(self, song_dir):
+    def __init__(self, song_dir, log_level=logging.WARNING):
         self.song_dir = song_dir
-        logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
+        logging.basicConfig(stream=sys.stderr, level=log_level)
 
     def create_midi(self):
         song_files = os.listdir(f"songs/{self.song_dir}")
@@ -153,5 +153,19 @@ class MidiMagic:
         print('done')
 
 
-magic = MidiMagic('the-lick')
-magic.create_midi()
+def main():
+    try:
+        song_dir = sys.argv[1]
+    except IndexError:
+        song_dir = 'generic-pop-chords'
+    log_level = None
+    if len(sys.argv) > 1:
+        args = " ".join(sys.argv[1:])
+        if '-d' in args:
+            log_level = logging.DEBUG
+    magic = MidiMagic(song_dir, log_level)
+    magic.create_midi()
+
+
+if __name__ == "__main__":
+    main()

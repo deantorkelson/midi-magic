@@ -1,4 +1,14 @@
 # Overview
+## Running MIDIMAGIC
+This guide assumes that you have python3 setup and have installed this project's requirements with pip/pip3.
+
+### Midifying a song
+If you have created a song (e.g. `my_song/`) in the `songs/` dir, you can create the midi file for it by running
+`python3 src/main.py <song_directory_name>`, (e.g. `make midify my_song`). The corresponding midi file should be created in
+the `generated_midi/` directory.
+
+### Options
+- `-d`: enables debug messages
 
 ## File Structure
 ### General
