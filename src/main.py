@@ -145,7 +145,7 @@ class MidiMagic:
         track: int = 0
         for file_name in song_files:
             if file_name == 'meta.txt':
-                continue  # do nothing, this is just for notes
+                continue  # TODO: will need to use this file for tempo and maybe other stuff
             MidiMagicFile(self.song_dir, file_name, midi, DEFAULT_KEY).process_to_track(track)
             track += 1
         with open(f"generated_midi/{self.song_dir}.mid", "wb") as output_file:
